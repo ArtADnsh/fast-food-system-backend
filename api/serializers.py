@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Restaurant, MenuItem, Category
+from .models import Restaurant, MenuItem, Category,Users
 
 
 class RestaurantSerializer(serializers.ModelSerializer):
@@ -20,3 +20,15 @@ class MenuItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = MenuItem
         fields = ['id', 'name', 'description', 'price', 'category']
+
+
+class UsersSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='user_id', read_only=True)
+
+    class Meta:
+        model = Users
+        fields = ['id', 'name', 'email', 'phone', 'password', 'registration_date']
+        extra_kwargs = {
+            'password': {'write_only': True},
+            'registration_date': {'read_only': True}
+        }

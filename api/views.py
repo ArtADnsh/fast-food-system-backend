@@ -1,7 +1,14 @@
-from rest_framework import generics
+import jwt
+import datetime
+from rest_framework import generics, status
 from rest_framework.response import Response
-from .models import Restaurant, MenuItem, Category
-from .serializers import RestaurantSerializer, MenuItemSerializer
+from django.conf import settings
+from rest_framework.views import APIView
+
+from .authentication import CustomJWTAuthentication
+from .models import Restaurant, MenuItem, Category, Users
+from .serializers import RestaurantSerializer, MenuItemSerializer, UsersSerializer
+from .permissions import IsValidUser
 
 
 # ==========================================
@@ -9,7 +16,7 @@ from .serializers import RestaurantSerializer, MenuItemSerializer
 # ==========================================
 class RestaurantListView(generics.ListAPIView):
     """
-    لیست کردن تمام رستوران‌های فعال
+    API for listing restaurants.
     """
     queryset = Restaurant.objects.filter(is_active=1)
     serializer_class = RestaurantSerializer
@@ -20,7 +27,7 @@ class RestaurantListView(generics.ListAPIView):
 # ==========================================
 class RestaurantMenuRetrieveView(generics.RetrieveAPIView):
     """
-    دریافت اطلاعات یک رستوران خاص به همراه دسته‌بندی‌ها و آیتم‌های منو
+    API for restaurant info and menu
     """
     queryset = Restaurant.objects.filter(is_active=1)
     serializer_class = RestaurantSerializer  # برای نمایش در Browsable API
@@ -51,3 +58,72 @@ class RestaurantMenuRetrieveView(generics.RetrieveAPIView):
             "categories": list(categories),
             "items": item_serializer.data
         })
+
+class LoginAPIView(APIView):
+    """
+    API for user authentication and JWT generation.
+    """
+
+    def post(self, request, *args, **kwargs):
+        username_input = request.data.get('username')
+        password_input = request.data.get('password')
+
+        if not username_input or not password_input:
+            return Response(
+                {"error": "لطفا نام کاربری و رمز عبور را وارد کنید"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check database for matching phone OR email
+        user = Users.objects.filter(phone=username_input).first()
+        if not user:
+            user = Users.objects.filter(email=username_input).first()
+
+        # Verify user exists and password matches (using plain text as per SQL seed data)
+        if user and user.password == password_input:
+            # Create the JWT Payload
+            payload = {
+                'user_id': user.user_id,
+                'phone': user.phone,
+                'name': user.name,
+                'exp': datetime.datetime.utcnow() + datetime.timedelta(days=7),
+                'iat': datetime.datetime.utcnow()
+            }
+
+            # Encode the token
+            token = jwt.encode(payload, settings.SECRET_KEY, algorithm='HS256')
+
+            return Response({
+                "access_token": token,
+                "user_info": {
+                    "name": user.name,
+                    "phone": user.phone
+                }
+            }, status=status.HTTP_200_OK)
+
+        return Response(
+            {"error": "نام کاربری یا رمز عبور اشتباه است"},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+
+
+class RegisterAPIView(generics.CreateAPIView):
+    """
+    API for registering a new user.
+    """
+    queryset = Users.objects.all()
+    serializer_class = UsersSerializer
+
+
+class ProfileAPIView(generics.RetrieveUpdateAPIView):
+    """
+    CBV for retrieving and updating the logged-in user's profile.
+    """
+    serializer_class = UsersSerializer
+    authentication_classes = [CustomJWTAuthentication] # Apply our custom Auth
+    permission_classes = [IsValidUser]                 # Apply our custom Permission
+
+    def get_object(self):
+        # Because of our authentication class, request.user is our MySQL user object!
+        # This ensures users can ONLY retrieve/edit their own profile.
+        return self.request.user
