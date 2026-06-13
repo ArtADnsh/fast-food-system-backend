@@ -5,27 +5,47 @@ from rest_framework.response import Response
 from django.conf import settings
 from rest_framework.views import APIView
 from django.db import transaction
+from django.db.models import Count
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.filters import SearchFilter, OrderingFilter
+from django_filters import rest_framework as filters
 
 from .authentication import CustomJWTAuthentication
 from .models import Restaurant, MenuItem, Category, Users, OrderItem, Orders
 from .serializers import RestaurantSerializer, MenuItemSerializer, UsersSerializer, OrdersSerializer
 from .permissions import IsValidUser
+from .filters import RestaurantFilter
 
 
-# ==========================================
-#   Restaurant List View
-# ==========================================
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 6
+    page_size_query_param = 'page_size'
+
+
 class RestaurantListView(generics.ListAPIView):
     """
     API for listing restaurants.
     """
     queryset = Restaurant.objects.filter(is_active=1)
     serializer_class = RestaurantSerializer
+    pagination_class = StandardResultsSetPagination
+
+    filter_backends = [
+        filters.DjangoFilterBackend,
+        SearchFilter,
+        OrderingFilter
+    ]
+
+    # اتصال کلاس فیلتر
+    filterset_class = RestaurantFilter
+
+    # فیلدهای سرچ متنی
+    search_fields = ['name']
+
+    # فیلدهای مجاز برای مرتب‌سازی (Sorting)
+    ordering_fields = ['rating_avg', 'delivery_fee', 'total_orders']
 
 
-# ==========================================
-# 2. Restaurant Menu Retrieve View
-# ==========================================
 class RestaurantMenuRetrieveView(generics.RetrieveAPIView):
     """
     API for restaurant info and menu
