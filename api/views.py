@@ -168,7 +168,9 @@ class CheckoutAPIView(APIView):
         try:
             # 1. Calculate the real total price securely from the database
             subtotal = 0
-            delivery_fee = 25000  # Hardcoded to match your frontend for now
+
+            first_item_in_cart = MenuItem.objects.get(item_id=cart_items[0]['id'])
+            delivery_fee = first_item_in_cart.restaurant.delivery_fee
 
             for item in cart_items:
                 menu_item = MenuItem.objects.get(item_id=item['id'])
@@ -187,6 +189,12 @@ class CheckoutAPIView(APIView):
 
             # 3. Create the individual Order Items
             for item in cart_items:
+                if item.get('quantity', 0) <= 0:
+                    return Response(
+                        {"error": "تعداد نامعتبر است."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
                 menu_item = MenuItem.objects.get(item_id=item['id'])
                 OrderItem.objects.create(
                     order=order,
