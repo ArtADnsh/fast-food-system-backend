@@ -4,10 +4,11 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from django.conf import settings
 from rest_framework.views import APIView
+from django.db import transaction
 
 from .authentication import CustomJWTAuthentication
-from .models import Restaurant, MenuItem, Category, Users
-from .serializers import RestaurantSerializer, MenuItemSerializer, UsersSerializer
+from .models import Restaurant, MenuItem, Category, Users, OrderItem, Orders
+from .serializers import RestaurantSerializer, MenuItemSerializer, UsersSerializer, OrdersSerializer
 from .permissions import IsValidUser
 
 
@@ -127,3 +128,73 @@ class ProfileAPIView(generics.RetrieveUpdateAPIView):
         # Because of our authentication class, request.user is our MySQL user object!
         # This ensures users can ONLY retrieve/edit their own profile.
         return self.request.user
+
+
+class CheckoutAPIView(APIView):
+    """
+    CBV for processing a user's cart and creating an order in the database.
+    """
+    authentication_classes = [CustomJWTAuthentication]
+    permission_classes = [IsValidUser]
+
+    @transaction.atomic  # Ensures both Order and OrderItems are saved safely together
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        cart_items = request.data.get('cart', [])
+
+        if not cart_items:
+            return Response({"error": "سبد خرید شما خالی است."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # 1. Calculate the real total price securely from the database
+            subtotal = 0
+            delivery_fee = 25000  # Hardcoded to match your frontend for now
+
+            for item in cart_items:
+                menu_item = MenuItem.objects.get(item_id=item['id'])
+                subtotal += (menu_item.price * item['quantity'])
+
+            total_price = subtotal + delivery_fee
+
+            # 2. Create the main Order record
+            order = Orders.objects.create(
+                user=user,
+                status='Pending',
+                preparation_status='Pending',
+                total_price=total_price,
+                created_at=datetime.datetime.now()
+            )
+
+            # 3. Create the individual Order Items
+            for item in cart_items:
+                menu_item = MenuItem.objects.get(item_id=item['id'])
+                OrderItem.objects.create(
+                    order=order,
+                    item=menu_item,
+                    quantity=item['quantity'],
+                    unit_price=menu_item.price
+                )
+
+            return Response({
+                "message": "سفارش با موفقیت ثبت شد!",
+                "order_id": order.order_id
+            }, status=status.HTTP_201_CREATED)
+
+        except MenuItem.DoesNotExist:
+            return Response({"error": "یکی از آیتم‌های سبد خرید در منو یافت نشد."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class OrderHistoryAPIView(generics.ListAPIView):
+    """
+    API endpoint to fetch the logged-in user's order history.
+    """
+    serializer_class = OrdersSerializer
+    authentication_classes = [CustomJWTAuthentication]
+    permission_classes = [IsValidUser]
+
+    def get_queryset(self):
+        # request.user is set by our CustomJWTAuthentication class
+        # order_by('-created_at') ensures the newest orders show up first
+        return Orders.objects.filter(user=self.request.user).order_by('-created_at')
