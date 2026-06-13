@@ -74,7 +74,12 @@ class RestaurantMenuRetrieveView(generics.RetrieveAPIView):
                 "id": restaurant.restaurant_id,
                 "name": restaurant.name,
                 "rating": restaurant.rating_avg,
-                "delivery_fee": restaurant.delivery_fee
+                "delivery_fee": restaurant.delivery_fee,
+                "address": restaurant.address,
+                "phone": restaurant.phone,
+                "opening_hour": restaurant.opening_hour,
+                "closing_hour": restaurant.closing_hour,
+                "total_orders": restaurant.total_orders
             },
             "categories": list(categories),
             "items": item_serializer.data
