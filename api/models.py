@@ -38,6 +38,7 @@ class Employee(models.Model):
     salary = models.DecimalField(db_column='Salary', max_digits=10, decimal_places=2, blank=True, null=True)  # Field name made lowercase.
     employed_date = models.DateField(db_column='Employed_Date', blank=True, null=True)  # Field name made lowercase.
     restaurant = models.ForeignKey('Restaurant', models.DO_NOTHING, db_column='Restaurant_ID')  # Field name made lowercase.
+    user = models.ForeignKey('Users', models.DO_NOTHING, db_column='User_ID', blank=True, null=True)
 
     class Meta:
         managed = False
@@ -56,6 +57,23 @@ class MenuItem(models.Model):
         managed = False
         db_table = 'MENU_ITEM'
 
+class Restaurant(models.Model):
+    restaurant_id = models.AutoField(db_column='Restaurant_ID', primary_key=True)  # Field name made lowercase.
+    name = models.CharField(db_column='Name', max_length=100)  # Field name made lowercase.
+    address = models.CharField(db_column='Address', max_length=255, blank=True, null=True)  # Field name made lowercase.
+    phone = models.CharField(db_column='Phone', max_length=20, blank=True, null=True)  # Field name made lowercase.
+    rating_avg = models.DecimalField(db_column='Rating_Avg', max_digits=2, decimal_places=1, blank=True, null=True)  # Field name made lowercase.
+    opening_hour = models.TimeField(db_column='Opening_Hour', blank=True, null=True)  # Field name made lowercase.
+    closing_hour = models.TimeField(db_column='Closing_Hour', blank=True, null=True)  # Field name made lowercase.
+    delivery_fee = models.DecimalField(db_column='Delivery_Fee', max_digits=10, decimal_places=2, blank=True, null=True)  # Field name made lowercase.
+    is_active = models.IntegerField(db_column='Is_Active', blank=True, null=True)  # Field name made lowercase.
+    total_orders = models.IntegerField(db_column='Total_Orders', blank=True, null=True)  # Field name made lowercase.
+    total_revenue = models.DecimalField(db_column='Total_Revenue', max_digits=12, decimal_places=2, blank=True, null=True)  # Field name made lowercase.
+
+    class Meta:
+        managed = False
+        db_table = 'RESTAURANT'
+
 
 class Orders(models.Model):
     order_id = models.AutoField(db_column='Order_ID', primary_key=True)  # Field name made lowercase.
@@ -67,6 +85,7 @@ class Orders(models.Model):
     total_price = models.DecimalField(db_column='Total_Price', max_digits=10, decimal_places=2)  # Field name made lowercase.
     estimated_delivery = models.DateTimeField(db_column='Estimated_Delivery', blank=True, null=True)  # Field name made lowercase.
     created_at = models.DateTimeField(db_column='Created_At', blank=True, null=True)  # Field name made lowercase.
+    restaurant = models.ForeignKey(Restaurant, models.DO_NOTHING, db_column='Restaurant_ID')
 
     class Meta:
         managed = False
@@ -97,24 +116,6 @@ class Payment(models.Model):
     class Meta:
         managed = False
         db_table = 'PAYMENT'
-
-
-class Restaurant(models.Model):
-    restaurant_id = models.AutoField(db_column='Restaurant_ID', primary_key=True)  # Field name made lowercase.
-    name = models.CharField(db_column='Name', max_length=100)  # Field name made lowercase.
-    address = models.CharField(db_column='Address', max_length=255, blank=True, null=True)  # Field name made lowercase.
-    phone = models.CharField(db_column='Phone', max_length=20, blank=True, null=True)  # Field name made lowercase.
-    rating_avg = models.DecimalField(db_column='Rating_Avg', max_digits=2, decimal_places=1, blank=True, null=True)  # Field name made lowercase.
-    opening_hour = models.TimeField(db_column='Opening_Hour', blank=True, null=True)  # Field name made lowercase.
-    closing_hour = models.TimeField(db_column='Closing_Hour', blank=True, null=True)  # Field name made lowercase.
-    delivery_fee = models.DecimalField(db_column='Delivery_Fee', max_digits=10, decimal_places=2, blank=True, null=True)  # Field name made lowercase.
-    is_active = models.IntegerField(db_column='Is_Active', blank=True, null=True)  # Field name made lowercase.
-    total_orders = models.IntegerField(db_column='Total_Orders', blank=True, null=True)  # Field name made lowercase.
-    total_revenue = models.DecimalField(db_column='Total_Revenue', max_digits=12, decimal_places=2, blank=True, null=True)  # Field name made lowercase.
-
-    class Meta:
-        managed = False
-        db_table = 'RESTAURANT'
 
 
 class RestaurantAdmin(models.Model):

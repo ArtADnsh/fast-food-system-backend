@@ -1,6 +1,6 @@
 import jwt
 import datetime
-from rest_framework import generics, status
+from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from django.conf import settings
 from rest_framework.views import APIView
@@ -9,12 +9,21 @@ from django.db.models import Count
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters import rest_framework as filters
+from rest_framework.exceptions import PermissionDenied
 
 from .authentication import CustomJWTAuthentication
-from .models import Restaurant, MenuItem, Category, Users, OrderItem, Orders
-from .serializers import RestaurantSerializer, MenuItemSerializer, UsersSerializer, OrdersSerializer
+from .models import (Restaurant, MenuItem, Category,
+                     Users, OrderItem, Orders,
+                     RestaurantAdmin, Employee, Staff)
+
+from .serializers import (RestaurantSerializer, MenuItemSerializer,
+                          UsersSerializer, OrdersSerializer,
+                          OrderUpdateSerializer, OrderSerializer,
+                          StaffListSerializer)
+
 from .permissions import IsValidUser
 from .filters import RestaurantFilter
+from .mixins import RestaurantAdminMixin
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -85,6 +94,7 @@ class RestaurantMenuRetrieveView(generics.RetrieveAPIView):
             "items": item_serializer.data
         })
 
+
 class LoginAPIView(APIView):
     """
     API for user authentication and JWT generation.
@@ -107,6 +117,12 @@ class LoginAPIView(APIView):
 
         # Verify user exists and password matches (using plain text as per SQL seed data)
         if user and user.password == password_input:
+            is_admin = False
+            emp = Employee.objects.filter(user_id=user.user_id).first()
+            if emp:
+                is_admin = RestaurantAdmin.objects.filter(admin_id=emp.employee_id).exists()
+            # ----------------------------------------
+
             # Create the JWT Payload
             payload = {
                 'user_id': user.user_id,
@@ -124,14 +140,14 @@ class LoginAPIView(APIView):
                 "user_info": {
                     "name": user.name,
                     "phone": user.phone
-                }
+                },
+                "is_admin": is_admin
             }, status=status.HTTP_200_OK)
 
         return Response(
             {"error": "نام کاربری یا رمز عبور اشتباه است"},
             status=status.HTTP_401_UNAUTHORIZED
         )
-
 
 class RegisterAPIView(generics.CreateAPIView):
     """
@@ -157,7 +173,7 @@ class ProfileAPIView(generics.RetrieveUpdateAPIView):
 
 class CheckoutAPIView(APIView):
     """
-    CBV for processing a user's cart and creating an order in the database.
+    API for processing a user's cart and creating an order in the database.
     """
     authentication_classes = [CustomJWTAuthentication]
     permission_classes = [IsValidUser]
@@ -176,6 +192,7 @@ class CheckoutAPIView(APIView):
 
             first_item_in_cart = MenuItem.objects.get(item_id=cart_items[0]['id'])
             delivery_fee = first_item_in_cart.restaurant.delivery_fee
+            restaurant_id = Restaurant.objects.get(restaurant_id=first_item_in_cart.restaurant_id)
 
             for item in cart_items:
                 menu_item = MenuItem.objects.get(item_id=item['id'])
@@ -189,7 +206,8 @@ class CheckoutAPIView(APIView):
                 status='Pending',
                 preparation_status='Pending',
                 total_price=total_price,
-                created_at=datetime.datetime.now()
+                created_at=datetime.datetime.now(),
+                restaurant=restaurant_id
             )
 
             # 3. Create the individual Order Items
@@ -231,3 +249,109 @@ class OrderHistoryAPIView(generics.ListAPIView):
         # request.user is set by our CustomJWTAuthentication class
         # order_by('-created_at') ensures the newest orders show up first
         return Orders.objects.filter(user=self.request.user).order_by('-created_at')
+
+
+class MyMenuAPIView(generics.ListCreateAPIView):
+    serializer_class = MenuItemSerializer
+    permission_classes = [IsValidUser]
+
+    def get_restaurant(self):
+        auth_header = self.request.headers.get('Authorization')
+
+        if not auth_header or not auth_header.startswith('Bearer '):
+            raise PermissionDenied("ارور امنیتی: توکن معتبر ارسال نشده است.")
+
+        token = auth_header.split(' ')[1]
+
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+            current_user_id = payload.get('user_id')
+
+        except jwt.ExpiredSignatureError:
+            raise PermissionDenied("ارور امنیتی: توکن شما منقضی شده است.")
+        except jwt.InvalidTokenError:
+            raise PermissionDenied("ارور امنیتی: توکن نامعتبر است.")
+
+        # 🚨 خط ایمنی برای جلوگیری از تداخل با کارمندان بدون اکانت
+        if not current_user_id:
+            raise PermissionDenied("ارور امنیتی: آیدی کاربر در توکن وجود ندارد.")
+
+        # 🚀 استفاده از همان کوئری بهینه خودت با یک JOIN مخفی
+        admin_record = RestaurantAdmin.objects.filter(admin__user_id=current_user_id).first()
+
+        if not admin_record:
+            raise PermissionDenied("شما دسترسی ادمین ندارید یا به هیچ کارمندی متصل نیستید.")
+
+        # بررسی رستوران
+        if not admin_record.restaurant:
+            raise PermissionDenied("اکانت ادمین شما تایید شد، اما هیچ رستورانی به شما اختصاص نیافته است.")
+
+        return admin_record.restaurant
+
+    def get_queryset(self):
+        restaurant = self.get_restaurant()
+        return MenuItem.objects.filter(restaurant=restaurant)
+
+    def perform_create(self, serializer):
+        restaurant = self.get_restaurant()
+        serializer.save(restaurant=restaurant)
+
+
+class MyMenuDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = MenuItemSerializer
+    permission_classes = [IsValidUser]
+
+    def get_queryset(self):
+        auth_header = self.request.headers.get('Authorization')
+
+        if not auth_header or not auth_header.startswith('Bearer '):
+            raise PermissionDenied("ارور امنیتی: توکن معتبر ارسال نشده است.")
+
+        token = auth_header.split(' ')[1]
+
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+            current_user_id = payload.get('user_id')
+
+        except jwt.ExpiredSignatureError:
+            raise PermissionDenied("ارور امنیتی: توکن شما منقضی شده است.")
+        except jwt.InvalidTokenError:
+            raise PermissionDenied("ارور امنیتی: توکن نامعتبر است.")
+
+        # خط ایمنی حیاتی برای جلوگیری از تداخل با کارمندان بدون اکانت
+        if not current_user_id:
+            raise PermissionDenied("ارور امنیتی: آیدی کاربر در توکن وجود ندارد.")
+
+        # بررسی دسترسی ادمین (با استفاده از بهینه‌سازی عالی شما)
+        admin_record = RestaurantAdmin.objects.filter(admin__user_id=current_user_id).first()
+
+        if not admin_record or not admin_record.restaurant:
+            return MenuItem.objects.none()
+
+        # فقط غذاهای رستورانی که این کارمند ادمین آن است را برگردان
+        return MenuItem.objects.filter(restaurant=admin_record.restaurant)
+
+
+class OrderListAPIView(RestaurantAdminMixin, generics.ListAPIView):
+    serializer_class = OrderSerializer
+    permission_classes = [IsValidUser]
+
+    def get_queryset(self):
+        # فیلتر مستقیم با restaurant چون حالا فیلدشو داری!
+        return Orders.objects.filter(restaurant=self.get_restaurant())
+
+class OrderUpdateAPIView(RestaurantAdminMixin, generics.RetrieveUpdateAPIView):
+    serializer_class = OrderUpdateSerializer
+    permission_classes = [IsValidUser]
+
+    def get_queryset(self):
+        return Orders.objects.filter(restaurant=self.get_restaurant())
+
+class DeliveryStaffListAPIView(RestaurantAdminMixin, generics.ListAPIView):
+    serializer_class = StaffListSerializer
+    permission_classes = [IsValidUser]
+
+    def get_queryset(self):
+        restaurant = self.get_restaurant()
+        # فقط کسانی که نقش پیک دارن و متعلق به این رستوران هستن
+        return Staff.objects.filter(restaurant=restaurant, role='DeliveryPerson')

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Restaurant, MenuItem, Category, Users, Orders, OrderItem
+from .models import Restaurant, MenuItem, Category, Users, Orders, OrderItem, Staff
 
 
 class RestaurantSerializer(serializers.ModelSerializer):
@@ -51,3 +51,34 @@ class OrdersSerializer(serializers.ModelSerializer):
     class Meta:
         model = Orders
         fields = ['id', 'total_price', 'status', 'created_at', 'items']
+
+
+class OrderUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Orders
+        fields = ['status', 'preparation_status', 'delivery_staff']
+
+    def validate(self, attrs):
+        staff = attrs.get('delivery_staff')
+        # اگر درخواستی برای تغییر پیک داشتیم
+        if staff:
+            # چک کردن اینکه نقش حتما DeliveryPerson باشه
+            if staff.role != 'DeliveryPerson':
+                raise serializers.ValidationError("این کارمند مجاز به تحویل سفارش نیست (نقش او DeliveryPerson نیست).")
+        return attrs
+
+
+class StaffListSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(source='staff.name') # دسترسی به نام از طریق Employee که با Staff در ارتباطه
+    class Meta:
+        model = Staff
+        fields = ['staff_id', 'name', 'role']
+
+class OrderSerializer(serializers.ModelSerializer):
+    # این فیلدها را اضافه می‌کنیم تا به جای آیدی، نام کاربر و جزئیات آدرس را ببینیم
+    user_name = serializers.CharField(source='user.name', read_only=True)
+    address_str = serializers.CharField(source='address.street', read_only=True)
+
+    class Meta:
+        model = Orders
+        fields = '__all__' # چون فقط برای مشاهده است، همه فیلدها را برمی‌گردانیم
