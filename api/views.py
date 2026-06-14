@@ -192,10 +192,20 @@ class CheckoutAPIView(APIView):
 
             first_item_in_cart = MenuItem.objects.get(item_id=cart_items[0]['id'])
             delivery_fee = first_item_in_cart.restaurant.delivery_fee
-            restaurant_id = Restaurant.objects.get(restaurant_id=first_item_in_cart.restaurant_id)
+            restaurant = Restaurant.objects.get(restaurant_id=first_item_in_cart.restaurant_id)
 
             for item in cart_items:
+                if item.get('quantity', 0) <= 0:
+                    return Response({"error": "تعداد نامعتبر است."}, status=status.HTTP_400_BAD_REQUEST)
                 menu_item = MenuItem.objects.get(item_id=item['id'])
+
+                # جلوگیری از ثبت سفارش ترکیبی از چند رستوران
+                if menu_item.restaurant_id != restaurant.restaurant_id:
+                    return Response(
+                        {"error": "تمام آیتم‌های سبد خرید باید از یک رستوران باشند."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
                 subtotal += (menu_item.price * item['quantity'])
 
             total_price = subtotal + delivery_fee
@@ -207,7 +217,7 @@ class CheckoutAPIView(APIView):
                 preparation_status='Pending',
                 total_price=total_price,
                 created_at=datetime.datetime.now(),
-                restaurant=restaurant_id
+                restaurant=restaurant
             )
 
             # 3. Create the individual Order Items
