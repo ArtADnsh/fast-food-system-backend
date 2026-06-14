@@ -129,19 +129,16 @@ class RestaurantAdmin(models.Model):
 
 
 class Review(models.Model):
-    review_id = models.AutoField(db_column='Review_ID', primary_key=True)  # Field name made lowercase.
-    user = models.ForeignKey('Users', models.DO_NOTHING, db_column='User_ID')  # Field name made lowercase.
-    restaurant = models.ForeignKey(Restaurant, models.DO_NOTHING, db_column='Restaurant_ID', blank=True, null=True)  # Field name made lowercase.
-    item = models.ForeignKey(MenuItem, models.DO_NOTHING, db_column='Item_ID', blank=True, null=True)  # Field name made lowercase.
-    staff = models.ForeignKey('Staff', models.DO_NOTHING, db_column='Staff_ID', blank=True, null=True)  # Field name made lowercase.
-    rating = models.IntegerField(db_column='Rating')  # Field name made lowercase.
-    comment = models.TextField(db_column='Comment', blank=True, null=True)  # Field name made lowercase.
-    created_at = models.DateTimeField(db_column='Created_At', blank=True, null=True)  # Field name made lowercase.
+    review_id = models.AutoField(db_column='Review_ID', primary_key=True)
+    # ارتباط یک‌به‌یک: هر سفارش فقط یک نقد و بررسی دارد
+    order = models.OneToOneField('Orders', models.DO_NOTHING, db_column='Order_ID')
+    rating = models.IntegerField(db_column='Rating')
+    comment = models.TextField(db_column='Comment', blank=True, null=True)
+    created_at = models.DateTimeField(db_column='Created_At', blank=True, null=True)
 
     class Meta:
         managed = False
         db_table = 'REVIEW'
-
 
 class Staff(models.Model):
     staff = models.OneToOneField(Employee, models.DO_NOTHING, db_column='Staff_ID', primary_key=True)  # Field name made lowercase.

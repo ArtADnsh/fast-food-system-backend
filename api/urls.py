@@ -14,4 +14,5 @@ urlpatterns = [
     path('admin/orders/', views.OrderListAPIView.as_view(), name='order-list'),
     path('admin/orders/<int:pk>/', views.OrderUpdateAPIView.as_view(), name='order-update'),
     path('admin/delivery-staff/', views.DeliveryStaffListAPIView.as_view(), name='delivery-staff-list'),
+    path('reviews/', views.CreateReviewAPIView.as_view(), name='create-review'),
 ]

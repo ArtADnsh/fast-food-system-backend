@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Restaurant, MenuItem, Category, Users, Orders, OrderItem, Staff
+from .models import Restaurant, MenuItem, Category, Users, Orders, OrderItem, Staff, Review
 
 
 class RestaurantSerializer(serializers.ModelSerializer):
@@ -48,9 +48,25 @@ class OrdersSerializer(serializers.ModelSerializer):
     # This pulls all related items.
     items = OrderItemSerializer(source='orderitem_set', many=True, read_only=True)
 
+    has_review = serializers.SerializerMethodField()
+    review_data = serializers.SerializerMethodField()
+
     class Meta:
         model = Orders
-        fields = ['id', 'total_price', 'status', 'created_at', 'items']
+        fields = '__all__'
+
+    def get_has_review(self, obj):
+        return Review.objects.filter(order=obj).exists()
+
+    def get_review_data(self, obj):
+        review = Review.objects.filter(order=obj).first()
+        if review:
+            return {
+                "rating": review.rating,
+                "comment": review.comment,
+                "created_at": review.created_at
+            }
+        return None
 
 
 class OrderUpdateSerializer(serializers.ModelSerializer):
@@ -75,10 +91,50 @@ class StaffListSerializer(serializers.ModelSerializer):
         fields = ['staff_id', 'name', 'role']
 
 class OrderSerializer(serializers.ModelSerializer):
-    # این فیلدها را اضافه می‌کنیم تا به جای آیدی، نام کاربر و جزئیات آدرس را ببینیم
+    has_review = serializers.SerializerMethodField()
+    review_data = serializers.SerializerMethodField()
     user_name = serializers.CharField(source='user.name', read_only=True)
     address_str = serializers.CharField(source='address.street', read_only=True)
 
     class Meta:
         model = Orders
         fields = '__all__' # چون فقط برای مشاهده است، همه فیلدها را برمی‌گردانیم
+
+    def get_has_review(self, obj):
+        # بررسی می‌کنیم آیا رکوردی در جدول Review برای این سفارش هست یا نه
+        return Review.objects.filter(order=obj).exists()
+
+    def get_review_data(self, obj):
+        # اگر نظر داشت، اطلاعاتش را هم می‌فرستیم تا کاربر بتواند آن را ببیند
+        review = Review.objects.filter(order=obj).first()
+        if review:
+            return {
+                "rating": review.rating,
+                "comment": review.comment,
+                "created_at": review.created_at
+            }
+        return None
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Review
+        fields = ['order', 'rating', 'comment']
+
+    def validate(self, attrs):
+        order = attrs.get('order')
+        # این همان رکوردی است که CustomJWTAuthentication شما توی request می‌گذارد (از جنس مدل Users خودت)
+        user = self.context['request'].user
+
+        if order.user != user:
+            raise serializers.ValidationError("شما فقط می‌توانید برای سفارشات خودتان نظر ثبت کنید.")
+
+        # بررسی وضعیت تحویل
+        if order.status != 'Delivered':
+            raise serializers.ValidationError("فقط برای سفارشاتی که تحویل داده شده‌اند امکان ثبت نظر وجود دارد.")
+
+        # جلوگیری از ثبت نظر تکراری
+        if Review.objects.filter(order=order).exists():
+            raise serializers.ValidationError("شما قبلاً برای این سفارش نظر خود را ثبت کرده‌اید.")
+
+        return attrs

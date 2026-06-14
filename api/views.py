@@ -19,7 +19,7 @@ from .models import (Restaurant, MenuItem, Category,
 from .serializers import (RestaurantSerializer, MenuItemSerializer,
                           UsersSerializer, OrdersSerializer,
                           OrderUpdateSerializer, OrderSerializer,
-                          StaffListSerializer)
+                          StaffListSerializer, ReviewSerializer)
 
 from .permissions import IsValidUser
 from .filters import RestaurantFilter
@@ -365,3 +365,12 @@ class DeliveryStaffListAPIView(RestaurantAdminMixin, generics.ListAPIView):
         restaurant = self.get_restaurant()
         # فقط کسانی که نقش پیک دارن و متعلق به این رستوران هستن
         return Staff.objects.filter(restaurant=restaurant, role='DeliveryPerson')
+
+
+class CreateReviewAPIView(generics.CreateAPIView):
+    serializer_class = ReviewSerializer
+    authentication_classes = [CustomJWTAuthentication]
+    permission_classes = [IsValidUser]
+
+    def perform_create(self, serializer):
+        serializer.save(created_at=datetime.datetime.now())
