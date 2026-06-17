@@ -1,5 +1,5 @@
 # Fast-Food Management System (Backend)
-🖥️ **Looking for the Frontend?** Check out the Vanilla JS Single Page Application repository [here](https://github.com/YourUsername/fast-food-system-frontend).
+🖥️ **Looking for the Frontend?** Check out the Vanilla JS Single Page Application repository [here](https://github.com/ArtADnsh/fast-food-system-frontend).
 ---
 
 Welcome to the backend repository of the **Fast-Food Management System** (`fast-food-system`). This project is a robust, enterprise-grade, and decoupled restaurant management and food delivery platform. It is built using **Django REST Framework (DRF)** and **MySQL**, adhering to advanced database normalization practices (following Elmasri and Navathe's relational database principles), secure custom authentication mechanisms, and strict business logic constraints.
