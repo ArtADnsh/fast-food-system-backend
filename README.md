@@ -326,11 +326,6 @@ Follow these steps to spin up the backend environment locally on an Ubuntu/Linux
    ```
    
 4. **Initialize Database Configurations:**
-   Open your MySQL terminal and load the full relational schema along with optimized mock metrics:
-   ```bash
-   mysql -u your_user -p -e "CREATE DATABASE fastfood_db;"
-   mysql -u your_user -p fastfood_db < schema.sql
-   ```
    Ensure you have MySQL installed and running on your system.
    
    **A. Install MySQL (if not already installed):**
