@@ -298,28 +298,69 @@ Follow these steps to spin up the backend environment locally on an Ubuntu/Linux
 
 1. **Clone the Repository:**
    ```bash
-   git clone [https://github.com/your-username/fast-food-system-backend.git](https://github.com/your-username/fast-food-system-backend.git)
+   git clone https://github.com/ArtADnsh/fast-food-system-backend.git
    cd fast-food-system-backend
    ```
+   
 2. **Setup the Virtual Environment:**
+ * **Linux / macOS:**
    ```bash
    python3 -m venv venv
    source venv/bin/activate
    ```
+ * **Windows (Command Prompt / CMD):**
+   ```bash
+   python -m venv venv
+   venv\Scripts\activate.bat
+   ```
+ * **Windows (PowerShell):**
+   ```bash
+   python -m venv venv
+   .\venv\Scripts\Activate.ps1
+   ```
+   
 3. **Install Core Dependencies:**
    ```bash
    pip install --upgrade pip
    pip install -r requirements.txt
    ```
+   
 4. **Initialize Database Configurations:**
    Open your MySQL terminal and load the full relational schema along with optimized mock metrics:
    ```bash
    mysql -u your_user -p -e "CREATE DATABASE fastfood_db;"
    mysql -u your_user -p fastfood_db < schema.sql
    ```
+   Ensure you have MySQL installed and running on your system.
+   
+   **A. Install MySQL (if not already installed):**
+   * **Linux (Ubuntu):**
+     ```bash
+     sudo apt update && sudo apt install mysql-server
+     ```
+   * **macOS:**
+     ```bash
+     brew install mysql && brew services start mysql
+     ```
+   * **Windows:** Download and run the official [MySQL Installer MSI](https://dev.mysql.com/downloads/installer/).
+     
+   **B. Create Database and Import Schema:**
+   Execute the database setup commands based on your OS/Shell:
+   
+   * **Linux / macOS / Windows (CMD):**
+     ```Bash
+     mysql -u your_user -p -e "CREATE DATABASE fastfood_db;"
+     mysql -u your_user -p fastfood_db < schema.sql
+     ```
+   * **Windows (PowerShell):**
+     ```Bash
+     mysql -u your_user -p -e "CREATE DATABASE fastfood_db;"
+     Get-Content schema.sql | mysql -u your_user -p fastfood_db
+     ```
+     
 5. **Run the Development Server:**
    ```bash
-   python manage.py runserver 0.0.0.0:8000
+   python manage.py runserver   
    ```
 
 ## 👨‍💻 Contributor & Author
